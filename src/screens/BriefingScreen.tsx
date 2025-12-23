@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import AudioWaveform from '@/components/AudioWaveform';
-import { Pause, Play, RotateCcw } from 'lucide-react';
+import { Pause, Play } from 'lucide-react';
 
 interface BriefingScreenProps {
   onEnd: () => void;
@@ -30,20 +30,10 @@ const BriefingScreen: React.FC<BriefingScreenProps> = ({ onEnd }) => {
     setIsPaused(!isPaused);
   };
 
-  const handleRepeatLast = () => {
-    setState('speaking');
-    setIsPaused(false);
-  };
-
-  const simulateStateChange = () => {
-    // For demo purposes, toggle between speaking and listening
-    setState(prev => prev === 'speaking' ? 'listening' : 'speaking');
-  };
-
   return (
     <div className="min-h-screen bg-background flex flex-col items-center justify-center px-8 animate-fade-in">
       {/* Audio visualization */}
-      <div className="mb-8" onClick={simulateStateChange}>
+      <div className="mb-8">
         <AudioWaveform 
           isActive={!isPaused} 
           variant={state === 'listening' ? 'listening' : 'speaking'} 
@@ -55,8 +45,8 @@ const BriefingScreen: React.FC<BriefingScreenProps> = ({ onEnd }) => {
         {getStatusText()}
       </p>
       
-      {/* Primary controls */}
-      <div className="flex items-center gap-6 mb-8">
+      {/* Controls */}
+      <div className="flex items-center gap-6">
         <Button
           variant="brief-secondary"
           size="icon"
@@ -72,26 +62,6 @@ const BriefingScreen: React.FC<BriefingScreenProps> = ({ onEnd }) => {
           className="px-8"
         >
           End session
-        </Button>
-      </div>
-      
-      {/* Secondary controls */}
-      <div className="flex items-center gap-6">
-        <Button
-          variant="brief-ghost"
-          onClick={handleRepeatLast}
-          className="text-sm"
-        >
-          <RotateCcw className="w-4 h-4 mr-2" />
-          Repeat last
-        </Button>
-        
-        <Button
-          variant="brief-ghost"
-          onClick={simulateStateChange}
-          className="text-sm"
-        >
-          What else?
         </Button>
       </div>
     </div>
