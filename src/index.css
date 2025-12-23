@@ -48,6 +48,48 @@
     --brief-success: 160 30% 45%;
     --brief-pulse: 215 30% 60%;
   }
+
+  .dark {
+    /* Brief Dark - Calm, deep palette */
+    --background: 220 15% 10%;
+    --foreground: 40 10% 90%;
+
+    --card: 220 12% 14%;
+    --card-foreground: 40 10% 90%;
+
+    --popover: 220 15% 12%;
+    --popover-foreground: 40 10% 90%;
+
+    /* Muted slate-blue - calming, trustworthy */
+    --primary: 215 30% 55%;
+    --primary-foreground: 220 15% 10%;
+
+    --secondary: 220 10% 18%;
+    --secondary-foreground: 40 10% 80%;
+
+    --muted: 220 10% 20%;
+    --muted-foreground: 220 8% 55%;
+
+    --accent: 215 15% 22%;
+    --accent-foreground: 215 25% 70%;
+
+    --destructive: 0 50% 45%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 220 10% 20%;
+    --input: 220 10% 20%;
+    --ring: 215 30% 55%;
+
+    /* Custom Brief tokens - Dark */
+    --brief-surface: 220 15% 10%;
+    --brief-text-primary: 40 10% 90%;
+    --brief-text-secondary: 220 8% 60%;
+    --brief-text-tertiary: 220 6% 45%;
+    --brief-accent: 215 30% 55%;
+    --brief-accent-soft: 215 15% 22%;
+    --brief-success: 160 25% 50%;
+    --brief-pulse: 215 35% 65%;
+  }
 }
 
 @layer base {
