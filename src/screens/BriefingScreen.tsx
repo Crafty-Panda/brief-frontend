@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import AudioWaveform from '@/components/AudioWaveform';
 import { Pause, Play } from 'lucide-react';
@@ -8,11 +8,25 @@ interface BriefingScreenProps {
   onDraftCreated?: () => void;
 }
 
-type BriefingState = 'speaking' | 'listening' | 'paused';
+type BriefingState = 'speaking' | 'listening';
 
 const BriefingScreen: React.FC<BriefingScreenProps> = ({ onEnd }) => {
   const [state, setState] = useState<BriefingState>('speaking');
   const [isPaused, setIsPaused] = useState(false);
+
+  // Simulate switching between speaking and listening
+  useEffect(() => {
+    if (isPaused) return;
+
+    const speakingDuration = 4000 + Math.random() * 3000; // 4-7 seconds
+    const listeningDuration = 2000 + Math.random() * 2000; // 2-4 seconds
+
+    const timeout = setTimeout(() => {
+      setState(prev => prev === 'speaking' ? 'listening' : 'speaking');
+    }, state === 'speaking' ? speakingDuration : listeningDuration);
+
+    return () => clearTimeout(timeout);
+  }, [state, isPaused]);
 
   const getStatusText = () => {
     if (isPaused) return 'Paused';
