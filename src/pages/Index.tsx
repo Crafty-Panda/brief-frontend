@@ -1,28 +1,68 @@
 import React, { useState, useEffect } from 'react';
+import { App as CapacitorApp } from '@capacitor/app';
+import { Capacitor } from '@capacitor/core';
 import OnboardingScreen from '@/screens/OnboardingScreen';
 import HomeScreen from '@/screens/HomeScreen';
 import BriefingScreen from '@/screens/BriefingScreen';
 import DraftConfirmationScreen from '@/screens/DraftConfirmationScreen';
 import SettingsScreen from '@/screens/SettingsScreen';
+import { useAuth } from '@/hooks/useAuth';
 
 type Screen = 'onboarding' | 'home' | 'briefing' | 'draft' | 'settings';
 
 const Index = () => {
   const [currentScreen, setCurrentScreen] = useState<Screen>('onboarding');
   const [lastChecked, setLastChecked] = useState<string | undefined>(undefined);
-  const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(false);
+  const { isAuthenticated, isLoading } = useAuth();
 
-  // Check if user has completed onboarding (in real app, this would be persisted)
+  // Handle deep link auth callback for mobile
   useEffect(() => {
-    const onboarded = localStorage.getItem('brief-onboarded');
-    if (onboarded === 'true') {
-      setHasCompletedOnboarding(true);
-      setCurrentScreen('home');
-    }
+    if (!Capacitor.isNativePlatform()) return;
+
+    let listener: { remove: () => void } | null = null;
+
+    const setupListener = async () => {
+      listener = await CapacitorApp.addListener('appUrlOpen', (data) => {
+        // Handle deep link: brief://auth?token=xxx&user=xxx
+        const url = new URL(data.url);
+        if (url.protocol === 'brief:' && url.hostname === 'auth') {
+          const token = url.searchParams.get('token');
+          const userParam = url.searchParams.get('user');
+          
+          if (token && userParam) {
+            try {
+              const user = JSON.parse(decodeURIComponent(userParam));
+              localStorage.setItem('brief-token', token);
+              localStorage.setItem('brief-user', JSON.stringify(user));
+              localStorage.setItem('brief-onboarded', 'true');
+              window.location.reload(); // Reload to pick up new auth state
+            } catch (e) {
+              console.error('Failed to parse deep link auth:', e);
+            }
+          }
+        }
+      });
+    };
+
+    setupListener();
+
+    return () => {
+      listener?.remove();
+    };
   }, []);
 
+  // Check auth state and set initial screen
+  useEffect(() => {
+    if (!isLoading) {
+      if (isAuthenticated) {
+        setCurrentScreen('home');
+      } else {
+        setCurrentScreen('onboarding');
+      }
+    }
+  }, [isAuthenticated, isLoading]);
+
   const handleOnboardingComplete = () => {
-    setHasCompletedOnboarding(true);
     localStorage.setItem('brief-onboarded', 'true');
     setCurrentScreen('home');
   };
