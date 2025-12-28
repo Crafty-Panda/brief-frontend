@@ -27,14 +27,15 @@ export const useConversation = () => {
     setConversationState(prev => ({ ...prev, isLoading: true, error: null }));
 
     try {
-      const currentUser = JSON.parse(localStorage.getItem('brief-user') || 'null');
-      if (!currentUser?.id) throw new Error('Not authenticated');
+      if (!user?.id) {
+        throw new Error('Not authenticated');
+      }
 
       const response = await fetch(`${API_BASE_URL}/api/conversation/start`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-user-id': currentUser.id,
+          'x-user-id': user.id,
         },
       });
 

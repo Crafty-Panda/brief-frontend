@@ -27,8 +27,7 @@ export const useAuth = () => {
   });
 
   // Check for existing auth on mount
-  useEffect(() => { 
-    console.log('useAuth useEffect');
+  useEffect(() => {
     const storedUser = localStorage.getItem('brief-user');
     const storedToken = localStorage.getItem('brief-token');
     

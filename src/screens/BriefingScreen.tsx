@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import AudioWaveform from '@/components/AudioWaveform';
-import { Pause, Play } from 'lucide-react';
-import { useConversation } from '@/hooks/useConversation';
+import { Pause, Play, Loader2 } from 'lucide-react';
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
 import { useTextToSpeech } from '@/hooks/useTextToSpeech';
+import { useRealtimeSession } from '@/hooks/useRealtimeSession';
 import { useAuth } from '@/hooks/useAuth';
 
 interface BriefingScreenProps {
@@ -12,55 +12,62 @@ interface BriefingScreenProps {
   onDraftCreated?: () => void;
 }
 
-type BriefingState = 'idle' | 'speaking' | 'listening' | 'processing';
+type BriefingState = 'idle' | 'connecting' | 'speaking' | 'listening' | 'processing' | 'error';
 
 const BriefingScreen: React.FC<BriefingScreenProps> = ({ onEnd }) => {
   const [state, setState] = useState<BriefingState>('idle');
   const [isPaused, setIsPaused] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [transcript, setTranscript] = useState('');
+  const [messages, setMessages] = useState<Array<{ role: string; content: string }>>([]);
   const hasStartedRef = useRef(false);
 
-  const conversation = useConversation();
   const speechRecognition = useSpeechRecognition();
   const textToSpeech = useTextToSpeech();
+  const realtime = useRealtimeSession({
+    onMessage: (message) => {
+      setMessages(prev => [...prev, { role: 'assistant', content: message }]);
+      // Speak the response
+      setState('speaking');
+      textToSpeech.speak(message).then(() => {
+        setState('listening');
+        speechRecognition.startListening();
+      });
+    },
+    onError: (error) => {
+      setState('error');
+      console.error('Realtime error:', error);
+    }
+  });
   const { user } = useAuth();
-  // Start conversation session on mount
+
+  // Start session on mount
   useEffect(() => {
-    if (!hasStartedRef.current && !conversation.isLoading && !conversation.isActive) {
+    if (!hasStartedRef.current && user?.id) {
       hasStartedRef.current = true;
       handleStartSession();
     }
-  }, [user?.id, conversation.isLoading, conversation.isActive]);
+  }, [user?.id]);
 
   const handleStartSession = async () => {
     try {
-      setState('processing');
-      setError(null);
-      
-      const greeting = await conversation.startSession();
-      
-      setState('speaking');
-      await textToSpeech.speak(greeting);
-      
-      // After greeting, start listening
+      setState('connecting');
+      await realtime.connect();
       setState('listening');
-      speechRecognition.startListening();
     } catch (err: any) {
-      setError(err.message || 'Failed to start conversation');
-      setState('idle');
+      setState('error');
+      console.error('Failed to start session:', err);
     }
   };
 
   // Handle speech recognition - process when user stops speaking
   useEffect(() => {
-    // Process when recognition stops and we have a final transcript
     if (!speechRecognition.isListening && state === 'listening' && speechRecognition.finalTranscript) {
-      const transcript = speechRecognition.finalTranscript.trim();
-      if (transcript.length > 0 && !conversation.isLoading) {
-        handleUserInput(transcript);
+      const userMessage = speechRecognition.finalTranscript.trim();
+      if (userMessage.length > 0) {
+        handleUserInput(userMessage);
       }
     }
-  }, [speechRecognition.isListening, speechRecognition.finalTranscript, state, conversation.isLoading]);
+  }, [speechRecognition.isListening, speechRecognition.finalTranscript, state]);
 
   const handleUserInput = async (utterance: string) => {
     try {
@@ -68,29 +75,11 @@ const BriefingScreen: React.FC<BriefingScreenProps> = ({ onEnd }) => {
       speechRecognition.stopListening();
       speechRecognition.resetTranscript();
 
-      const response = await conversation.processTurn(utterance);
-
-      // Check if session ended
-      if (!conversation.isActive) {
-        setState('idle');
-        await textToSpeech.speak(response);
-        setTimeout(() => {
-          onEnd();
-        }, 1000);
-        return;
-      }
-
-      // Speak the response
-      setState('speaking');
-      await textToSpeech.speak(response);
-
-      // After response, listen again
-      setState('listening');
-      speechRecognition.startListening();
+      setMessages(prev => [...prev, { role: 'user', content: utterance }]);
+      realtime.sendMessage(utterance);
     } catch (err: any) {
-      setError(err.message || 'Failed to process input');
-      setState('listening');
-      speechRecognition.startListening();
+      setState('error');
+      console.error('Error processing input:', err);
     }
   };
 
@@ -115,20 +104,23 @@ const BriefingScreen: React.FC<BriefingScreenProps> = ({ onEnd }) => {
   const handleEnd = () => {
     textToSpeech.stop();
     speechRecognition.stopListening();
-    conversation.endSession();
+    realtime.disconnect();
     onEnd();
   };
 
   const getStatusText = () => {
-    if (error) return `Error: ${error}`;
+    if (state === 'error') return 'Connection error';
     if (isPaused) return 'Paused';
-    if (conversation.isLoading || state === 'processing') return 'Processing...';
     
     switch (state) {
+      case 'connecting':
+        return 'Connecting...';
       case 'speaking':
         return 'Brief is speaking';
       case 'listening':
         return 'Listening...';
+      case 'processing':
+        return 'Processing...';
       case 'idle':
         return 'Starting...';
       default:
@@ -138,6 +130,27 @@ const BriefingScreen: React.FC<BriefingScreenProps> = ({ onEnd }) => {
 
   return (
     <div className="min-h-screen bg-background flex flex-col items-center justify-center px-8 animate-fade-in">
+      {/* Messages
+      <div className="w-full max-w-md mb-8 h-48 overflow-y-auto rounded-lg bg-slate-50 p-4 border border-slate-200">
+        {messages.map((msg, idx) => (
+          <div
+            key={idx}
+            className={`mb-3 p-2 rounded ${
+              msg.role === 'user'
+                ? 'bg-blue-100 text-blue-900 ml-8'
+                : 'bg-slate-100 text-slate-900 mr-8'
+            }`}
+          >
+            <p className="text-sm">{msg.content}</p>
+          </div>
+        ))}
+        {speechRecognition.finalTranscript && (
+          <div className="mb-3 p-2 rounded bg-slate-100 text-slate-700 italic ml-8">
+            <p className="text-sm">{speechRecognition.finalTranscript}</p>
+          </div>
+        )}
+      </div> */}
+
       {/* Audio visualization */}
       <div className="mb-8">
         <AudioWaveform 
@@ -158,7 +171,7 @@ const BriefingScreen: React.FC<BriefingScreenProps> = ({ onEnd }) => {
           size="icon"
           className="w-14 h-14 rounded-full"
           onClick={handlePauseResume}
-          disabled={state === 'idle' || state === 'processing'}
+          disabled={state === 'connecting' || state === 'processing' || state === 'error'}
         >
           {isPaused ? <Play className="w-6 h-6" /> : <Pause className="w-6 h-6" />}
         </Button>
@@ -168,7 +181,7 @@ const BriefingScreen: React.FC<BriefingScreenProps> = ({ onEnd }) => {
           onClick={handleEnd}
           className="px-8"
         >
-          End session
+          {state === 'error' ? 'Close' : 'End session'}
         </Button>
       </div>
     </div>
