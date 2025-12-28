@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Browser } from '@capacitor/browser';
 import { Capacitor } from '@capacitor/core';
+import { API_BASE_URL } from '@/config/env';
 
 interface User {
   id: string;
@@ -15,8 +16,8 @@ interface AuthState {
   isAuthenticated: boolean;
 }
 
-// Configure your backend auth URL
-const AUTH_BASE_URL = 'http://localhost:3000';
+// Backend auth base URL (configurable via Vite env)
+const AUTH_BASE_URL = API_BASE_URL;
 
 export const useAuth = () => {
   const [authState, setAuthState] = useState<AuthState>({
