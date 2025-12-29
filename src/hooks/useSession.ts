@@ -1,5 +1,5 @@
 /**
- * useRealtimeSession Hook
+ * useSession Hook
  * 
  * Manages WebSocket connection to chat supervisor backend
  * - Handles session creation
@@ -11,20 +11,20 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useToast } from '@/components/ui/use-toast';
 import { API_BASE_URL, WS_BASE_URL,  } from '@/config/env';
 
-interface UseRealtimeSessionConfig {
+interface UseSessionConfig {
   onMessage?: (message: string) => void;
   onError?: (error: string) => void;
 }
 
-interface RealtimeSessionState {
+interface SessionState {
   isConnected: boolean;
   isLoading: boolean;
   error: string | null;
 }
 
-export function useRealtimeSession(config: UseRealtimeSessionConfig = {}) {
+export function useSession(config: UseSessionConfig = {}) {
   const { toast } = useToast();
-  const [state, setState] = useState<RealtimeSessionState>({
+  const [state, setState] = useState<SessionState>({
     isConnected: false,
     isLoading: false,
     error: null
@@ -43,7 +43,7 @@ export function useRealtimeSession(config: UseRealtimeSessionConfig = {}) {
       // Create session via REST API
       const currentUser = JSON.parse(localStorage.getItem('brief-user') || 'null');
       if (!currentUser?.id) throw new Error('Not authenticated');
-      const sessionResponse = await fetch(`${API_BASE_URL}/api/realtime/session`, {
+      const sessionResponse = await fetch(`${API_BASE_URL}/api/session/create`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -54,40 +54,62 @@ export function useRealtimeSession(config: UseRealtimeSessionConfig = {}) {
       if (!sessionResponse.ok) {
         throw new Error('Failed to create session');
       }
+      console.log('sessionResponse:', sessionResponse);
 
       const { sessionId } = await sessionResponse.json();
       sessionIdRef.current = sessionId;
 
       // Connect WebSocket
+      // Note: Browser WebSocket API doesn't support custom headers, so we pass userId as query param
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const wsUrl = `${WS_BASE_URL}/api/realtime/chat/${sessionId}`;
+      const wsUrl = `${WS_BASE_URL}/api/session/${sessionId}/chat?userId=${currentUser.id}`;
 
       const ws = new WebSocket(wsUrl);
+      
       ws.onopen = () => {
+        console.log('✅ WebSocket connected');
         setState(prev => ({ ...prev, isConnected: true, isLoading: false }));
       };
-      console.log('connected to websocket');
 
       ws.onmessage = (event) => {
-        const message = JSON.parse(event.data);
-        
-        if (message.type === 'greeting' || message.type === 'response') {
-          config.onMessage?.(message.content);
-        } else if (message.type === 'error') {
-          const errorMsg = message.content;
-          setState(prev => ({ ...prev, error: errorMsg }));
-          config.onError?.(errorMsg);
+        try {
+          const message = JSON.parse(event.data);
+          console.log('📥 WebSocket message received:', message);
+          
+          // Handle all response types: greeting, summary, response, error
+          if (message.type === 'greeting' || message.type === 'summary' || message.type === 'response') {
+            config.onMessage?.(message.content);
+          } else if (message.type === 'error') {
+            const errorMsg = message.content;
+            console.error('WebSocket error:', errorMsg);
+            setState(prev => ({ ...prev, error: errorMsg, isLoading: false }));
+            config.onError?.(errorMsg);
+          } else {
+            console.warn('Unknown message type:', message.type);
+          }
+        } catch (error) {
+          console.error('Failed to parse WebSocket message:', error, event.data);
+          setState(prev => ({ ...prev, error: 'Failed to parse message', isLoading: false }));
         }
       };
 
       ws.onerror = (error) => {
+        console.error('WebSocket error event:', error);
         const errorMsg = 'WebSocket connection error';
-        setState(prev => ({ ...prev, error: errorMsg }));
+        setState(prev => ({ ...prev, error: errorMsg, isLoading: false }));
         config.onError?.(errorMsg);
       };
 
-      ws.onclose = () => {
-        setState(prev => ({ ...prev, isConnected: false }));
+      ws.onclose = (event) => {
+        console.log('WebSocket closed:', event.code, event.reason);
+        setState(prev => ({ ...prev, isConnected: false, isLoading: false }));
+        
+        // If closed unexpectedly (not by us), show error
+        if (event.code !== 1000 && event.code !== 1001) {
+          const errorMsg = `Connection closed unexpectedly (code: ${event.code})`;
+          setState(prev => ({ ...prev, error: errorMsg }));
+          config.onError?.(errorMsg);
+        }
       };
 
       wsRef.current = ws;

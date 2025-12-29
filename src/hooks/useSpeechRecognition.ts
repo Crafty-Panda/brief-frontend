@@ -62,6 +62,7 @@ export const useSpeechRecognition = (): SpeechRecognitionHook => {
       
       // Show combined final + interim for real-time feedback
       setTranscript((finalTranscriptRef.current + ' ' + interimTranscript).trim());
+      console.log('transcript', transcript)
     };
 
     recognition.onerror = (event: any) => {
