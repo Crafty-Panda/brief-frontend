@@ -79,27 +79,101 @@ const BriefingScreen: React.FC<BriefingScreenProps> = ({ onEnd }) => {
     }
   };
 
-  // Handle speech recognition - process when user stops speaking
+  // Track previous final transcript to detect changes
+  const prevFinalTranscriptRef = useRef<string>('');
+  const processingRef = useRef(false);
+  const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Handle speech recognition - process when we get a final transcript
   useEffect(() => {
-    if (!speechRecognition.isListening && state === 'listening' && speechRecognition.finalTranscript) {
-      const userMessage = speechRecognition.finalTranscript.trim();
-      if (userMessage.length > 0) {
-        handleUserInput(userMessage);
-      }
+    const currentFinalTranscript = speechRecognition.finalTranscript;
+    
+    console.log('🔍 Speech recognition effect:', {
+      isListening: speechRecognition.isListening,
+      state,
+      finalTranscript: currentFinalTranscript,
+      transcript: speechRecognition.transcript,
+      prevFinalTranscript: prevFinalTranscriptRef.current,
+      isProcessing: processingRef.current
+    });
+
+    // Clear any existing timeout
+    if (debounceTimeoutRef.current) {
+      clearTimeout(debounceTimeoutRef.current);
+      debounceTimeoutRef.current = null;
     }
-  }, [speechRecognition.isListening, speechRecognition.finalTranscript, state]);
+
+    // Process when:
+    // 1. We're in listening state
+    // 2. We have a final transcript that's different from what we've already processed
+    // 3. We're not already processing
+    if (
+      state === 'listening' && 
+      currentFinalTranscript && 
+      currentFinalTranscript.trim().length > 0 &&
+      currentFinalTranscript !== prevFinalTranscriptRef.current &&
+      !processingRef.current
+    ) {
+      console.log('⏳ Setting debounce timeout for:', currentFinalTranscript);
+      
+      // Debounce: wait a moment to see if more speech comes in
+      debounceTimeoutRef.current = setTimeout(() => {
+        // Double-check conditions after timeout
+        const stillListening = state === 'listening';
+        const transcriptUnchanged = currentFinalTranscript === speechRecognition.finalTranscript;
+        
+        console.log('⏰ Debounce timeout fired:', {
+          stillListening,
+          transcriptUnchanged,
+          currentFinalTranscript,
+          currentState: state
+        });
+        
+        if (stillListening && transcriptUnchanged && !processingRef.current) {
+          const userMessage = currentFinalTranscript.trim();
+          console.log('✅ Processing user input:', userMessage);
+          
+          processingRef.current = true;
+          prevFinalTranscriptRef.current = currentFinalTranscript;
+          
+          handleUserInput(userMessage).finally(() => {
+            processingRef.current = false;
+          });
+        }
+        
+        debounceTimeoutRef.current = null;
+      }, 800); // Wait 800ms of silence before processing
+    }
+    
+    // Cleanup timeout on unmount
+    return () => {
+      if (debounceTimeoutRef.current) {
+        clearTimeout(debounceTimeoutRef.current);
+      }
+    };
+  }, [speechRecognition.finalTranscript, state]);
 
   const handleUserInput = async (utterance: string) => {
     try {
+      console.log('🔄 handleUserInput called with:', utterance);
       setState('processing');
       speechRecognition.stopListening();
-      speechRecognition.resetTranscript();
-
+      
+      // Add user message to UI
       setMessages(prev => [...prev, { role: 'user', content: utterance }]);
+      
+      // Send to backend
       session.sendMessage(utterance);
+      
+      // Reset transcript after a brief delay to allow UI update
+      setTimeout(() => {
+        speechRecognition.resetTranscript();
+        prevFinalTranscriptRef.current = '';
+      }, 100);
     } catch (err: any) {
       setState('error');
       console.error('Error processing input:', err);
+      processingRef.current = false;
     }
   };
 

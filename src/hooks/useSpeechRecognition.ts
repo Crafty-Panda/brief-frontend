@@ -56,13 +56,16 @@ export const useSpeechRecognition = (): SpeechRecognitionHook => {
 
       // Update final transcript when we have final results
       if (finalText) {
-        finalTranscriptRef.current = (finalTranscriptRef.current + ' ' + finalText).trim();
-        setFinalTranscript(finalTranscriptRef.current);
+        const newFinalText = (finalTranscriptRef.current + ' ' + finalText).trim();
+        finalTranscriptRef.current = newFinalText;
+        setFinalTranscript(newFinalText);
+        console.log('✅ Final transcript updated:', newFinalText);
       }
       
       // Show combined final + interim for real-time feedback
-      setTranscript((finalTranscriptRef.current + ' ' + interimTranscript).trim());
-      console.log('transcript', transcript)
+      const combinedTranscript = (finalTranscriptRef.current + ' ' + interimTranscript).trim();
+      setTranscript(combinedTranscript);
+      console.log('📝 Transcript update - final:', finalTranscriptRef.current, 'interim:', interimTranscript);
     };
 
     recognition.onerror = (event: any) => {
@@ -86,6 +89,7 @@ export const useSpeechRecognition = (): SpeechRecognitionHook => {
   }, []);
 
   const startListening = useCallback(() => {
+    console.log('listening...');
     if (recognitionRef.current && !isListening) {
       setTranscript('');
       setFinalTranscript('');
