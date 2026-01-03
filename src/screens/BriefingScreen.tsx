@@ -23,35 +23,147 @@ const BriefingScreen: React.FC<BriefingScreenProps> = ({ onEnd }) => {
 
   const speechRecognition = useSpeechRecognition();
   const textToSpeech = useTextToSpeech();
+  const streamingMessageRef = useRef<string>('');
+  const isStreamingRef = useRef<boolean>(false);
+  const lastAssistantIndexRef = useRef<number>(-1);
+  const uiUpdateTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const pendingChunksRef = useRef<string>('');
+
   const session = useSession({
-    onMessage: (message) => {
-      console.log('📨 Received message from session:', message);
-      setMessages(prev => [...prev, { role: 'assistant', content: message }]);
+    onChunk: (chunk: string) => {
+      // Handle streaming chunks - accumulate and speak immediately
+      console.log('📨 Received chunk:', chunk);
+      streamingMessageRef.current += chunk;
+      pendingChunksRef.current += chunk;
+      isStreamingRef.current = true;
       
-      // Transition from connecting to speaking when greeting arrives
+      // Transition to speaking state when streaming starts
       setState(prevState => {
-        // If we're connecting, this is the greeting - transition to speaking
-        if (prevState === 'connecting') {
+        if (prevState === 'connecting' || prevState === 'processing') {
           return 'speaking';
         }
-        // Otherwise, we're responding to user input
-        return 'speaking';
+        return prevState;
       });
       
-      // Speak the response
-      textToSpeech.speak(message).then(() => {
-        setState(prevState => {
-          // Only start listening if we're not in error state
-          if (prevState !== 'error') {
-            return 'listening';
+      // Speak chunk immediately as it arrives
+      if (chunk.trim().length > 0) {
+        textToSpeech.speakChunk(chunk);
+      }
+      
+      // Throttle UI updates to match speech pace
+      // Calculate delay based on chunk size - smaller chunks update faster, larger ones slower
+      // Average speech rate is ~150 words/min = ~2.5 words/sec = ~12.5 chars/sec
+      // So we update UI roughly every 100-200ms depending on chunk size
+      const chunkLength = chunk.length;
+      const baseDelay = 1000; // Base delay in ms
+      const delay = Math.min(baseDelay + (chunkLength * 5), 200); // Max 200ms delay
+      
+      if (uiUpdateTimeoutRef.current) {
+        clearTimeout(uiUpdateTimeoutRef.current);
+      }
+      
+      uiUpdateTimeoutRef.current = setTimeout(() => {
+        // Update UI with accumulated message
+        setMessages(prev => {
+          if (lastAssistantIndexRef.current >= 0 && lastAssistantIndexRef.current < prev.length) {
+            // Update existing streaming message
+            const updated = [...prev];
+            updated[lastAssistantIndexRef.current] = {
+              role: 'assistant',
+              content: streamingMessageRef.current
+            };
+            return updated;
+          } else {
+            // Create new message
+            lastAssistantIndexRef.current = prev.length;
+            return [...prev, { role: 'assistant', content: streamingMessageRef.current }];
           }
-          return prevState;
         });
-        speechRecognition.startListening();
-      }).catch((err) => {
-        console.error('TTS error:', err);
-        setState('error');
-      });
+        pendingChunksRef.current = '';
+      }, delay);
+    },
+    onMessage: (message) => {
+      // Handle final complete message (after streaming or non-streaming)
+      console.log('📨 Received final message from session:', message);
+      
+      // Clear any pending UI update timeout
+      if (uiUpdateTimeoutRef.current) {
+        clearTimeout(uiUpdateTimeoutRef.current);
+        uiUpdateTimeoutRef.current = null;
+      }
+      
+      if (isStreamingRef.current) {
+        // Final response after streaming - chunks have already been spoken
+        const finalMessage = streamingMessageRef.current || message;
+        streamingMessageRef.current = '';
+        isStreamingRef.current = false;
+        
+        // Update final message in UI
+        setMessages(prev => {
+          if (lastAssistantIndexRef.current >= 0 && lastAssistantIndexRef.current < prev.length) {
+            const updated = [...prev];
+            updated[lastAssistantIndexRef.current] = {
+              role: 'assistant',
+              content: finalMessage
+            };
+            return updated;
+          }
+          return [...prev, { role: 'assistant', content: finalMessage }];
+        });
+        lastAssistantIndexRef.current = -1;
+        
+        // Wait for TTS queue to finish, then transition to listening
+        // Since chunks were already spoken, we just need to wait for the queue to empty
+        const checkTTSComplete = setInterval(() => {
+          if (!textToSpeech.isSpeaking) {
+            clearInterval(checkTTSComplete);
+            setState(prevState => {
+              if (prevState !== 'error') {
+                return 'listening';
+              }
+              return prevState;
+            });
+            speechRecognition.startListening();
+          }
+        }, 100);
+        
+        // Fallback timeout in case TTS doesn't properly signal completion
+        setTimeout(() => {
+          clearInterval(checkTTSComplete);
+          setState(prevState => {
+            if (prevState !== 'error') {
+              return 'listening';
+            }
+            return prevState;
+          });
+          speechRecognition.startListening();
+        }, 5000);
+      } else {
+        // Regular non-streaming message
+        setMessages(prev => [...prev, { role: 'assistant', content: message }]);
+        
+        // Transition from connecting to speaking when greeting arrives
+        setState(prevState => {
+          if (prevState === 'connecting') {
+            return 'speaking';
+          }
+          return 'speaking';
+        });
+        
+        // Speak the response
+        textToSpeech.speak(message).then(() => {
+          setState(prevState => {
+            if (prevState !== 'error') {
+              return 'listening';
+            }
+            return prevState;
+          });
+          speechRecognition.startListening();
+        }).catch((err) => {
+          console.error('TTS error:', err);
+          setState('error');
+        });
+      }
     },
     onError: (error) => {
       console.error('Session error:', error);
@@ -196,11 +308,25 @@ const BriefingScreen: React.FC<BriefingScreenProps> = ({ onEnd }) => {
   };
 
   const handleEnd = () => {
+    // Clear any pending UI update timeout
+    if (uiUpdateTimeoutRef.current) {
+      clearTimeout(uiUpdateTimeoutRef.current);
+      uiUpdateTimeoutRef.current = null;
+    }
     textToSpeech.stop();
     speechRecognition.stopListening();
     session.disconnect();
     onEnd();
   };
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (uiUpdateTimeoutRef.current) {
+        clearTimeout(uiUpdateTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const getStatusText = () => {
     if (state === 'error') return 'Connection error';

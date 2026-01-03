@@ -13,6 +13,7 @@ import { API_BASE_URL, WS_BASE_URL,  } from '@/config/env';
 
 interface UseSessionConfig {
   onMessage?: (message: string) => void;
+  onChunk?: (chunk: string) => void;
   onError?: (error: string) => void;
 }
 
@@ -76,8 +77,16 @@ export function useSession(config: UseSessionConfig = {}) {
           const message = JSON.parse(event.data);
           console.log('📥 WebSocket message received:', message);
           
+          // Handle streaming chunks - send to chunk handler if available, otherwise to message handler
+          if (message.type === 'chunk') {
+            if (config.onChunk) {
+              config.onChunk(message.content);
+            } else {
+              config.onMessage?.(message.content);
+            }
+          }
           // Handle all response types: greeting, summary, response, error
-          if (message.type === 'greeting' || message.type === 'summary' || message.type === 'response') {
+          else if (message.type === 'greeting' || message.type === 'summary' || message.type === 'response') {
             config.onMessage?.(message.content);
           } else if (message.type === 'error') {
             const errorMsg = message.content;
