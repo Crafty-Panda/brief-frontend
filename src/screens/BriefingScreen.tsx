@@ -28,7 +28,7 @@ const BriefingScreen: React.FC<BriefingScreenProps> = ({ onEnd }) => {
     const run = async () => {
       setState('connecting');
       try {
-        console.log('Initializing startSession');
+        console.log('Initializing Session');
         await startSession();
         if (!cancelled) setState('connected');
       } catch (err) {
