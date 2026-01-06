@@ -28,7 +28,7 @@ const Index = () => {
         if (url.protocol === 'brief:' && url.hostname === 'auth') {
           const token = url.searchParams.get('token');
           const userParam = url.searchParams.get('user');
-          
+
           if (token && userParam) {
             try {
               const user = JSON.parse(decodeURIComponent(userParam));
@@ -74,10 +74,10 @@ const Index = () => {
   const handleEndBrief = () => {
     // Update last checked time
     const now = new Date();
-    const timeString = now.toLocaleTimeString('en-US', { 
-      hour: 'numeric', 
+    const timeString = now.toLocaleTimeString('en-US', {
+      hour: 'numeric',
       minute: '2-digit',
-      hour12: true 
+      hour12: true
     });
     setLastChecked(`Today at ${timeString}`);
     setCurrentScreen('home');
@@ -109,35 +109,34 @@ const Index = () => {
   switch (currentScreen) {
     case 'onboarding':
       return <OnboardingScreen onContinue={handleOnboardingComplete} />;
-    
+
     case 'home':
       return (
-        <HomeScreen 
+        <HomeScreen
           onStartBrief={handleStartBrief}
           onOpenSettings={handleOpenSettings}
           lastChecked={lastChecked}
         />
       );
-    
+
     case 'briefing':
       return (
         <BriefingScreen 
           onEnd={handleEndBrief}
-          onDraftCreated={handleDraftCreated}
         />
       );
-    
+
     case 'draft':
       return (
-        <DraftConfirmationScreen 
+        <DraftConfirmationScreen
           onOpenGmail={handleOpenGmail}
           onBackToBrief={handleBackToBrief}
         />
       );
-    
+
     case 'settings':
       return <SettingsScreen onBack={handleBackFromSettings} />;
-    
+
     default:
       return <HomeScreen onStartBrief={handleStartBrief} onOpenSettings={handleOpenSettings} />;
   }

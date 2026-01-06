@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Browser } from '@capacitor/browser';
 import { Capacitor } from '@capacitor/core';
+import { API_BASE_URL } from '@/config/env';
 
 interface User {
   id: string;
@@ -15,8 +16,8 @@ interface AuthState {
   isAuthenticated: boolean;
 }
 
-// Configure your backend auth URL
-const AUTH_BASE_URL = 'http://localhost:3000';
+// Backend auth base URL (configurable via Vite env)
+const AUTH_BASE_URL = API_BASE_URL;
 
 export const useAuth = () => {
   const [authState, setAuthState] = useState<AuthState>({
@@ -93,49 +94,8 @@ export const useAuth = () => {
         console.error('Failed to open browser:', error);
       }
     } else {
-      // For web: Use popup approach to avoid navigation issues
-      const width = 500;
-      const height = 600;
-      const left = window.screenX + (window.outerWidth - width) / 2;
-      const top = window.screenY + (window.outerHeight - height) / 2;
-      
-      const popup = window.open(
-        authUrl,
-        'Google Sign In',
-        `width=${width},height=${height},left=${left},top=${top},popup=yes`
-      );
-      
-      // Listen for message from popup
-      const handleMessage = (event: MessageEvent) => {
-        if (event.origin !== AUTH_BASE_URL) return;
-        
-        const { token, user } = event.data;
-        if (token && user) {
-          localStorage.setItem('brief-token', token);
-          localStorage.setItem('brief-user', JSON.stringify(user));
-          localStorage.setItem('brief-onboarded', 'true');
-          
-          setAuthState({
-            user,
-            isLoading: false,
-            isAuthenticated: true,
-          });
-          
-          popup?.close();
-        }
-        
-        window.removeEventListener('message', handleMessage);
-      };
-      
-      window.addEventListener('message', handleMessage);
-      
-      // Fallback: Check for popup close and URL params
-      const checkPopup = setInterval(() => {
-        if (popup?.closed) {
-          clearInterval(checkPopup);
-          window.removeEventListener('message', handleMessage);
-        }
-      }, 500);
+      // For web: full page redirect
+      window.location.href = authUrl;
     }
   }, []);
 

@@ -3,11 +3,13 @@ import React from 'react';
 interface AudioWaveformProps {
   isActive?: boolean;
   variant?: 'speaking' | 'listening';
+  audioLevel?: number;
 }
 
 const AudioWaveform: React.FC<AudioWaveformProps> = ({ 
   isActive = false, 
-  variant = 'speaking' 
+  variant = 'speaking',
+  audioLevel = 0
 }) => {
   if (!isActive) {
     return (
