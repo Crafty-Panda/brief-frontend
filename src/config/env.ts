@@ -1,6 +1,6 @@
 // Vite exposes env vars prefixed with VITE_ via import.meta.env
 
-const fallbackApiBaseUrl = 'https://3d887d16bb76.ngrok-free.app'
+const fallbackApiBaseUrl = 'http://localhost:3000'
 const fallbackWsBaseUrl = 'ws://localhost:3000'
 
 export const API_BASE_URL: string =
