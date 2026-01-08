@@ -163,7 +163,7 @@ export const useConversation = () => {
         
         const conversationId = await elevenConversation.startSession({
           agentId: data.agentId,
-          connectionType: 'webrtc',
+          connectionType: 'websocket',
           userId: user.id,
           metadata: { sessionId: data.sessionId },
         } as any); // Cast to any to avoid SDK type drift during integration
