@@ -22,3 +22,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+MOBILE_DEPLOYMENT.md
+VERCEL_DEPLOYMENT.md

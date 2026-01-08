@@ -17,7 +17,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
     <div className="min-h-screen bg-background flex flex-col px-8 pt-safe-top pb-safe-bottom animate-fade-in">
       {/* Header */}
       <header className="pt-12 pb-8">
-        <BriefLogo size="md" />
+        {/* <BriefLogo size="md" /> */}
       </header>
       
       {/* Main content - centered */}

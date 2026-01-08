@@ -16,9 +16,6 @@ interface AuthState {
   isAuthenticated: boolean;
 }
 
-// Backend auth base URL (configurable via Vite env)
-const AUTH_BASE_URL = API_BASE_URL;
-
 export const useAuth = () => {
   const [authState, setAuthState] = useState<AuthState>({
     user: null,
@@ -74,7 +71,8 @@ export const useAuth = () => {
   }, []);
 
   const signInWithGoogle = useCallback(async () => {
-    const authUrl = `${AUTH_BASE_URL}/api/auth/google`;
+    const authUrl = `${API_BASE_URL}/api/auth/google`;
+    console.log('authUrl', authUrl); 
     const isNative = Capacitor.isNativePlatform();
     
     if (isNative) {
