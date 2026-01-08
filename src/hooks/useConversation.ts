@@ -165,7 +165,10 @@ export const useConversation = () => {
           agentId: data.agentId,
           connectionType: 'websocket',
           userId: user.id,
-          metadata: { sessionId: data.sessionId },
+          dynamicVariables: {
+            session_id: data.sessionId,
+            user_id: user.id,
+          },
         } as any); // Cast to any to avoid SDK type drift during integration
         
         return conversationId;
