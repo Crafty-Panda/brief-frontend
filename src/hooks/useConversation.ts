@@ -137,11 +137,10 @@ export const useConversation = () => {
 
       // Create session on backend (initializes agent and returns agentId)
       console.log('Creating session on backend');
-      const response = await fetch(`${API_BASE_URL}/api/session/create`, {
+      const response = await fetch(`${API_BASE_URL}/api/session/create/${user.id}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-user-id': user.id,
         },
       });
 
