@@ -23,8 +23,8 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onContinue }) => {
     setIsSigningIn(true);
     try {
       await signInWithGoogle();
-    } catch (error) {
-      console.error('Sign in failed:', error);
+    } catch {
+      console.error('Error signing in with Google');
       setIsSigningIn(false);
     }
   };
@@ -33,13 +33,13 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onContinue }) => {
     <div className="min-h-screen bg-background flex flex-col items-center justify-center px-8 animate-fade-in">
       <div className="flex flex-col items-center text-center max-w-sm">
         <BriefLogo size="lg" className="mb-12" />
-        
+
         <p className="text-xl text-brief-text-secondary leading-relaxed mb-16 font-light">
           Brief gives you a calm, spoken rundown of your inbox so you don't have to open it.
         </p>
-        
-        <Button 
-          variant="brief-large" 
+
+        <Button
+          variant="brief-large"
           onClick={handleGoogleSignIn}
           disabled={isSigningIn}
           className="w-full mb-6"
@@ -53,7 +53,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onContinue }) => {
             'Continue with Gmail'
           )}
         </Button>
-        
+
         <p className="text-sm text-brief-text-tertiary leading-relaxed">
           Read-only access. Brief never sends email without permission.
         </p>

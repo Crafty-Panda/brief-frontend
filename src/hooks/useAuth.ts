@@ -16,9 +16,6 @@ interface AuthState {
   isAuthenticated: boolean;
 }
 
-// Backend auth base URL (configurable via Vite env)
-const AUTH_BASE_URL = API_BASE_URL;
-
 export const useAuth = () => {
   const [authState, setAuthState] = useState<AuthState>({
     user: null,
@@ -30,7 +27,7 @@ export const useAuth = () => {
   useEffect(() => {
     const storedUser = localStorage.getItem('brief-user');
     const storedToken = localStorage.getItem('brief-token');
-    
+
     if (storedUser && storedToken) {
       setAuthState({
         user: JSON.parse(storedUser),
@@ -48,22 +45,22 @@ export const useAuth = () => {
       const urlParams = new URLSearchParams(window.location.search);
       const token = urlParams.get('token');
       const userParam = urlParams.get('user');
-      
+
       if (token && userParam) {
         try {
           const user = JSON.parse(decodeURIComponent(userParam));
           localStorage.setItem('brief-token', token);
           localStorage.setItem('brief-user', JSON.stringify(user));
           localStorage.setItem('brief-onboarded', 'true');
-          
+
           setAuthState({
             user,
             isLoading: false,
             isAuthenticated: true,
           });
-          
-          // Clean up URL
-          window.history.replaceState({}, document.title, window.location.pathname);
+
+          // Clean up URL - use explicit path to avoid issues with malformed callback URLs
+          window.history.replaceState({}, document.title, '/');
         } catch (e) {
           console.error('Failed to parse auth callback:', e);
         }
@@ -74,20 +71,20 @@ export const useAuth = () => {
   }, []);
 
   const signInWithGoogle = useCallback(async () => {
-    const authUrl = `${AUTH_BASE_URL}/api/auth/google`;
+    const authUrl = `${API_BASE_URL}/api/auth/google`;
     const isNative = Capacitor.isNativePlatform();
-    
+
     if (isNative) {
       // For mobile: Open in-app browser
       // Your backend should redirect back with a deep link like: 
       // brief://auth?token=xxx&user=xxx
       try {
-        await Browser.open({ 
+        await Browser.open({
           url: authUrl,
           windowName: '_blank',
           presentationStyle: 'popover'
         });
-        
+
         // Listen for app URL open events (deep link callback)
         // This will be handled by Capacitor App plugin
       } catch (error) {
@@ -103,7 +100,7 @@ export const useAuth = () => {
     localStorage.removeItem('brief-token');
     localStorage.removeItem('brief-user');
     localStorage.removeItem('brief-onboarded');
-    
+
     setAuthState({
       user: null,
       isLoading: false,

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { App as CapacitorApp } from '@capacitor/app';
 import { Capacitor } from '@capacitor/core';
+import { Loader2 } from 'lucide-react';
 import OnboardingScreen from '@/screens/OnboardingScreen';
 import HomeScreen from '@/screens/HomeScreen';
 import BriefingScreen from '@/screens/BriefingScreen';
@@ -105,6 +106,15 @@ const Index = () => {
     setCurrentScreen('briefing');
   };
 
+  // Show loading spinner while determining auth state
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="w-8 h-8 text-brief-accent animate-spin" />
+      </div>
+    );
+  }
+
   // Render current screen
   switch (currentScreen) {
     case 'onboarding':
@@ -121,7 +131,7 @@ const Index = () => {
 
     case 'briefing':
       return (
-        <BriefingScreen 
+        <BriefingScreen
           onEnd={handleEndBrief}
         />
       );

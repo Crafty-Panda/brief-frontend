@@ -1,8 +1,8 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap');
 
 @layer base {
   :root {
@@ -113,10 +113,13 @@
 
 /* Breathing animation for audio states */
 @keyframes breathe {
-  0%, 100% {
+
+  0%,
+  100% {
     transform: scale(1);
     opacity: 0.6;
   }
+
   50% {
     transform: scale(1.15);
     opacity: 1;
@@ -124,18 +127,24 @@
 }
 
 @keyframes pulse-soft {
-  0%, 100% {
+
+  0%,
+  100% {
     opacity: 0.4;
   }
+
   50% {
     opacity: 0.8;
   }
 }
 
 @keyframes wave {
-  0%, 100% {
+
+  0%,
+  100% {
     height: 8px;
   }
+
   50% {
     height: 24px;
   }
