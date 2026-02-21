@@ -21,32 +21,32 @@ const retryWithBackoff = async <T,>(
   initialDelay: number = 500
 ): Promise<T> => {
   let lastError: Error;
-  
+
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     try {
       return await fn();
     } catch (error: any) {
       lastError = error;
-      
+
       // Don't retry on authentication or validation errors
-      if (error.message?.includes('Not authenticated') || 
-          error.message?.includes('Missing agentId') ||
-          error.message?.includes('Failed to create session')) {
+      if (error.message?.includes('Not authenticated') ||
+        error.message?.includes('Missing agentId') ||
+        error.message?.includes('Failed to create session')) {
         throw error;
       }
-      
+
       // If it's the last attempt, throw the error
       if (attempt === maxRetries - 1) {
         throw error;
       }
-      
+
       // Wait with exponential backoff
       const delay = initialDelay * Math.pow(2, attempt);
       console.log(`Connection attempt ${attempt + 1} failed, retrying in ${delay}ms...`, error.message);
       await new Promise(resolve => setTimeout(resolve, delay));
     }
   }
-  
+
   throw lastError!;
 };
 
@@ -153,13 +153,12 @@ export const useConversation = () => {
       if (!data.agentId) {
         throw new Error('Missing agentId from backend response');
       }
-      console.log('Session created on backend', data);
 
       // Connect to ElevenLabs agent with retry logic
       const connectToElevenLabs = async () => {
         // Small delay to ensure backend agent is fully ready
         await new Promise(resolve => setTimeout(resolve, 200));
-        
+
         const conversationId = await elevenConversation.startSession({
           agentId: data.agentId,
           connectionType: 'websocket',
@@ -167,9 +166,11 @@ export const useConversation = () => {
           dynamicVariables: {
             session_id: data.sessionId,
             user_id: user.id,
+            user_name: data.userName || user.name || 'there',
+            sync: true,
           },
-        } as any); // Cast to any to avoid SDK type drift during integration
-        
+        } as any);
+
         return conversationId;
       };
 
@@ -207,12 +208,8 @@ export const useConversation = () => {
   const sendMessage = useCallback(
     async (text: string) => {
       if (!text?.trim()) return;
-      try {
-        await (elevenConversation as any)?.sendUserMessage?.(text);
-      } catch (error) {
-        console.error('Failed to send message:', error);
-        throw error;
-      }
+      console.log('Sending message to ElevenLabs:', text);
+      await (elevenConversation as any)?.sendUserMessage?.(text);
     },
     [elevenConversation]
   );
@@ -222,7 +219,7 @@ export const useConversation = () => {
    */
   const endSession = useCallback(async () => {
     isConnectingRef.current = false;
-    
+
     try {
       await (elevenConversation as any)?.endSession?.();
     } catch (error) {
@@ -264,4 +261,3 @@ export const useConversation = () => {
     elevenConversation,
   };
 };
-

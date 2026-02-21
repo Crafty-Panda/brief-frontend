@@ -1,7 +1,7 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import AudioWaveform from '@/components/AudioWaveform';
-import { Loader2, Pause, Play } from 'lucide-react';
+import { Loader2, Pause, Play, RotateCcw } from 'lucide-react';
 import { useConversation } from '@/hooks/useConversation';
 import { useAuth } from '@/hooks/useAuth';
 
@@ -20,27 +20,22 @@ const BriefingScreen: React.FC<BriefingScreenProps> = ({ onEnd }) => {
   const { user } = useAuth();
   const startedRef = useRef(false);
 
+  const initiateSession = useCallback(async () => {
+    setState('connecting');
+    try {
+      await startSession();
+      setState('connected');
+    } catch {
+      setState('error');
+    }
+  }, [startSession]);
+
   // Start session on mount (only once per mount)
   useEffect(() => {
     if (!user?.id || startedRef.current) return;
     startedRef.current = true;
-    let cancelled = false;
-    const run = async () => {
-      setState('connecting');
-      try {
-        console.log('Initializing Session');
-        await startSession();
-        if (!cancelled) setState('connected');
-      } catch (err) {
-        console.error('Failed to start conversation:', err);
-        if (!cancelled) setState('error');
-      }
-    };
-    run();
-    return () => {
-      cancelled = true;
-    };
-  }, [user?.id, startSession]);
+    initiateSession();
+  }, [user?.id, initiateSession]);
 
   // Sync UI state with SDK status to stop spinner when connected
   useEffect(() => {
@@ -62,10 +57,15 @@ const BriefingScreen: React.FC<BriefingScreenProps> = ({ onEnd }) => {
     onEnd();
   };
 
+  const handleRetry = () => {
+    startedRef.current = false;
+    initiateSession();
+  };
+
   const getStatusText = () => {
-    if (state === 'error') return 'Connection error';
+    if (state === 'error') return 'Connection failed';
     if (isPaused) return 'Paused';
-    
+
     switch (state) {
       case 'connecting':
         return 'Connecting...';
@@ -103,37 +103,60 @@ const BriefingScreen: React.FC<BriefingScreenProps> = ({ onEnd }) => {
 
       {/* Audio visualization */}
       <div className="mb-8">
-        <AudioWaveform 
-          isActive={!isPaused && (isSpeaking || state === 'connected')} 
-          variant={isSpeaking ? 'speaking' : 'listening'} 
+        <AudioWaveform
+          isActive={!isPaused && (isSpeaking || state === 'connected')}
+          variant={isSpeaking ? 'speaking' : 'listening'}
         />
       </div>
-      
+
       {/* Status text */}
       <p className="text-lg text-brief-text-secondary mb-16 h-7 text-center flex items-center gap-2">
         {state === 'connecting' && <Loader2 className="w-4 h-4 animate-spin" />}
         {getStatusText()}
       </p>
-      
+
       {/* Controls */}
       <div className="flex items-center gap-6">
-        <Button
-          variant="brief-secondary"
-          size="icon"
-          className="w-14 h-14 rounded-full"
-          onClick={handlePauseResume}
-          disabled={state === 'connecting' || state === 'error'}
-        >
-          {isPaused ? <Play className="w-6 h-6" /> : <Pause className="w-6 h-6" />}
-        </Button>
-        
-        <Button
-          variant="brief"
-          onClick={handleEnd}
-          className="px-8"
-        >
-          {state === 'error' ? 'Close' : 'End session'}
-        </Button>
+        {state === 'error' ? (
+          <>
+            <Button
+              variant="brief-secondary"
+              onClick={handleRetry}
+              className="px-6"
+            >
+              <RotateCcw className="w-4 h-4 mr-2" />
+              Try again
+            </Button>
+
+            <Button
+              variant="brief-ghost"
+              onClick={handleEnd}
+              className="px-6"
+            >
+              Close
+            </Button>
+          </>
+        ) : (
+          <>
+            <Button
+              variant="brief-secondary"
+              size="icon"
+              className="w-14 h-14 rounded-full"
+              onClick={handlePauseResume}
+              disabled={state === 'connecting'}
+            >
+              {isPaused ? <Play className="w-6 h-6" /> : <Pause className="w-6 h-6" />}
+            </Button>
+
+            <Button
+              variant="brief"
+              onClick={handleEnd}
+              className="px-8"
+            >
+              End session
+            </Button>
+          </>
+        )}
       </div>
     </div>
   );
