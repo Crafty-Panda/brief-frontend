@@ -169,7 +169,7 @@ export const useConversation = () => {
             user_name: data.userName || user.name || 'there',
             sync: true,
           },
-        } as any); // Cast to any to avoid SDK type drift during integration
+        } as any);
 
         return conversationId;
       };
